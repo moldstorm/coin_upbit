@@ -1,0 +1,5 @@
+{
+    "addr": "mongodb://localhost:27017/",
+    "name": "Coin",
+    "collector": "simulData"
+}
