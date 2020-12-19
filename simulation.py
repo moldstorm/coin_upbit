@@ -15,26 +15,6 @@ import upbitAPI
 from matplotlib import pyplot as plt
 from collections import deque
 
-# def findQueryData(self, start_date, end_date, start_time, end_time, time_unit):
-
-#     start_datetime = start_date + '-' + start_time
-#     end_datetime = end_date + '-' + end_time
-
-#     start_datetime_date = datetime.datetime.strptime(start_datetime, '%Y.%m.%d-%H:%M:%S')
-#     end_datetime_date = datetime.datetime.strptime(end_datetime, '%Y.%m.%d-%H:%M:%S')
-
-#     timedelta_term = end_datetime_date - start_datetime_date
-#     datedelta_term = end_datetime_date.date() - start_datetime_date.date()
-#     n_days = datedelta_term.days
-#     days_term = timedelta_term.days
-#     minutes_term = int(timedelta_term.seconds/60) + (days_term*24*60)
-#     num_loop = int(minutes_term/time_unit + 0.5)
-#     cnt_loop = 0
-
-#     print('days', n_days, days_term, 'mins', timedelta_term.seconds/60)
-
-#     spot_name = self.spot_list[0].split('-')[0]
-
 #     write_wb = Workbook()
 #     for i in range(n_days+1):
 #         query_date = start_datetime_date + datetime.timedelta(days=i)
@@ -130,28 +110,13 @@ from collections import deque
 #     self.exportTool_UI.textEdit_Output.append('Done creation.')
 #     self.exportTool_UI.textEdit_Output.append(excel_name)
     
-
-# def findQueryTime(self, spot_id, start_time, end_time, lane, dir_type, class_type):
-#     datestr = start_time.strftime('%Y.%m.%d')
-#     if dir_type == -1:
-#         query_set = {"date":datestr,"spotid":spot_id, "lane":int(lane), "type":int(class_type)}
-#     else:
-#         query_set = {"date":datestr,"spotid":spot_id, "lane":int(lane), "dir":int(dir_type), "type":int(class_type)}
-#     doc_set = list(self.db_datacollector.find(query_set))
-
-#     doc_time_set = []
-#     for doc in doc_set:
-#         doc_time = datetime.datetime.strptime((datestr+'-'+doc['time']), '%Y.%m.%d-%H:%M:%S')
-#         if (doc_time >= start_time) and (doc_time < end_time):
-#             doc_time_set.append(doc)
-
-#     return doc_time_set
-
-
-# def getInfrainfo(self):
-#     infra_info = self.db_infracollector.find({},{ "_id": 0, "spotid": 1, "lanenum": 1 })
-#     return list(infra_info)
-
+def printData(prefix, data):
+    print(prefix, end=' ')
+    print(f"vol:{data['candle_acc_trade_volume']:.2f}", end='\t')
+    print(f"price:{data['trade_price']:.2f}", end='\t')
+    print(f"high:{data['high_price']:.2f}", end='\t')
+    print(f"low:{data['low_price']:.2f}", end='\t')
+    print(f"open price:{data['opening_price']:.2f}")
 
 if __name__ == '__main__':
 
@@ -179,7 +144,8 @@ if __name__ == '__main__':
 
     test_coin = 'KRW-SBD'
     avg_day = 5
-    ratio_th_volume = 0.3
+    th_benefit_ratio = 1.1
+
 
     print(test_coin)
 
@@ -189,7 +155,14 @@ if __name__ == '__main__':
     price_set = []
     volume_set = deque()
     price_set = deque()
-    for min_data in min_data_set:
+    print_next = 0
+
+    # write_wb = Workbook()
+
+    for i in range(1,len(min_data_set)-1):
+        min_data = min_data_set[i]
+        min_data_prev = min_data_set[i-1]
+        min_data_next = min_data_set[i+1]
         date_str = min_data['candle_date_time_utc']
         date = datetime.datetime.strptime(date_str, '%Y-%m-%dT%H:%M:%S')
         date = date - datetime.timedelta(days=1)
@@ -211,6 +184,7 @@ if __name__ == '__main__':
         price = min_data['trade_price']
         high_price = min_data['high_price']
         low_price = min_data['low_price']
+        open_price = min_data['opening_price']
         volume = min_data['candle_acc_trade_volume']
 
         if len(volume_set) < avg_day:
@@ -229,13 +203,48 @@ if __name__ == '__main__':
         day_price = day_data['trade_price']
         high_price_ratio = high_price/price
 
-        if volume > day_volume*ratio_th_volume:
-            print(date_str)
-            print(f'avr_v:{avr_volume} day_v:{day_volume}, min_p:{price}, avr_p:{avr_price}, day_p:{day_price}')
+        benefit_ratio = min_data['trade_price']/min_data['opening_price']
+        benefit_ratio_est = min_data_next['trade_price']/min_data_next['opening_price']
+        if benefit_ratio > th_benefit_ratio:
+            print('-'*5, date_str, '-'*5)
+            print(f'benefit ratio:{benefit_ratio:.2f} next:{benefit_ratio_est:.2f}')
+            printData("PREV", min_data_prev)
+            printData("CUR ", min_data)
+            printData("NEXT", min_data_next)
+            print(f"ETC  avr volume:{avr_volume:.2f}\tavr price:{avr_price:.2f}\tday vol:{day_data['candle_acc_trade_volume']:.2f}\tday price:{day_data['trade_price']}")        
+
+        # if print_next == 1:
+        #     # print(f'Next avr_v:{avr_volume} day_v:{day_volume} p:{price} avr_p:{avr_price} high_p:{high_price} day_p:{day_price}')
+        #     benefit_ratio = price/open_price
+        #     if benefit_ratio > 1.10:
+        #         print("-"*20, date_str)
+        #         print(f'benefit ratio{benefit_ratio}')
+        #         print(f'avr_v:{avr_volume} day_v:{day_volume} p:{price} avr_p:{avr_price} high_p:{high_price} day_p:{day_price}')
+        #         print(prv_data)
+        #     print_next = 0
+
+        # if volume > day_volume*ratio_th_volume:
+        #     # print("-"*20)
+        #     # print(date_str)
+        #     # print(f'avr_v:{avr_volume} day_v:{day_volume} p:{price} avr_p:{avr_price} high_p:{high_price} day_p:{day_price}')
+        #     # print(prv_data)
+        #     print_next = 1
+
+        # benefit_ratio = price/open_price
+        # if benefit_ratio > 1.10:
+        #     print("-"*20, date_str)
+        #     print(f'benefit ratio:{benefit_ratio:.2f}')
+        #     print(f'day volume:{day_volume} day price:{day_price}')
+        #     print(f'volume:{volume:.2f} / {prv_v:.2f}')
+        #     print(f'avr volume:{avr_volume:.2f} / {prv_avr_v:.2f}')
+        #     print(f'price:{price} / {prv_p}')
+        #     print(f'avr price:{avr_price:.2f} / {prv_avr_p:.2f}')
+        #     print(f'high price:{high_price} / {prv_high_p}')
+        #     print(f'low price:{low_price} / {prv_low_p}')
 
         price_set.append(min_data['trade_price'])
 
 
-    plt.plot(price_set)
-    plt.show()
+    # plt.plot(price_set)
+    # plt.show()
 
