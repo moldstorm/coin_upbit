@@ -52,7 +52,8 @@ if __name__ == '__main__':
 
     test_coin = 'KRW-SBD'
     avg_day = 5
-    th_benefit_ratio = 1.10
+    th_benefit_ratio = 1.05
+    th_loss_benefit_ratio = 0.95
 
 
     print(test_coin)
@@ -67,39 +68,30 @@ if __name__ == '__main__':
     print_next = 0
 
     write_wb = Workbook()
-    write_ws_rate = write_wb.create_sheet(test_coin + '_rate')
-    write_ws_dayvolume = write_wb.create_sheet(test_coin + '_dayv')
+    # write_ws_rate = write_wb.create_sheet(test_coin + '_rate')
+    # write_ws_dayvolume = write_wb.create_sheet(test_coin + '_dayv')
+    write_ws_comb = write_wb.create_sheet(test_coin + '_comb')
 
-    write_ws_rate.cell(row=1, column=1).value = 'time'
-    write_ws_rate.cell(row=1, column=2).value = 'volume'
-    write_ws_rate.cell(row=1, column=3).value = str(avg_day) + 'volume'
-    write_ws_rate.cell(row=1, column=4).value = 'open'
-    write_ws_rate.cell(row=1, column=5).value = 'low'
-    write_ws_rate.cell(row=1, column=6).value = 'high'
-    write_ws_rate.cell(row=1, column=7).value = 'price'
-    write_ws_rate.cell(row=1, column=8).value = str(avg_day) + 'price'
-    write_ws_rate.cell(row=1, column=9).value = 'rate'
-    write_ws_rate.cell(row=1, column=10).value = 'n rate'
-    write_ws_rate.cell(row=1, column=11).value = 'v rate'
-    write_ws_rate.cell(row=1, column=12).value = 'day volume'
-    write_ws_rate.cell(row=1, column=13).value = 'day price'
-
-    write_ws_dayvolume.cell(row=1, column=1).value = 'time'
-    write_ws_dayvolume.cell(row=1, column=2).value = 'volume'
-    write_ws_dayvolume.cell(row=1, column=3).value = str(avg_day) + 'volume'
-    write_ws_dayvolume.cell(row=1, column=4).value = 'open'
-    write_ws_dayvolume.cell(row=1, column=5).value = 'low'
-    write_ws_dayvolume.cell(row=1, column=6).value = 'high'
-    write_ws_dayvolume.cell(row=1, column=7).value = 'price'
-    write_ws_dayvolume.cell(row=1, column=8).value = str(avg_day) + 'price'
-    write_ws_dayvolume.cell(row=1, column=9).value = 'rate'
-    write_ws_dayvolume.cell(row=1, column=10).value = 'n rate'
-    write_ws_dayvolume.cell(row=1, column=11).value = 'v rate'
-    write_ws_dayvolume.cell(row=1, column=12).value = 'day volume'
-    write_ws_dayvolume.cell(row=1, column=13).value = 'day price'
+    write_ws_comb.cell(row=1, column=1).value = 'time'
+    write_ws_comb.cell(row=1, column=2).value = 'case'
+    write_ws_comb.cell(row=1, column=3).value = 'volume'
+    write_ws_comb.cell(row=1, column=4).value = str(avg_day) + 'volume'
+    write_ws_comb.cell(row=1, column=5).value = 'open'
+    write_ws_comb.cell(row=1, column=6).value = 'low'
+    write_ws_comb.cell(row=1, column=7).value = 'high'
+    write_ws_comb.cell(row=1, column=8).value = 'price'
+    write_ws_comb.cell(row=1, column=9).value = str(avg_day) + 'price'
+    write_ws_comb.cell(row=1, column=10).value = 'c rate'
+    write_ws_comb.cell(row=1, column=11).value = 'rate'
+    write_ws_comb.cell(row=1, column=12).value = 'n rate'
+    write_ws_comb.cell(row=1, column=13).value = 'v rate'
+    write_ws_comb.cell(row=1, column=14).value = 'day volume'
+    write_ws_comb.cell(row=1, column=15).value = 'day v rate'
+    write_ws_comb.cell(row=1, column=16).value = 'day price'    
     
     ws_rate_row_cnt = 2
     ws_dayv_row_cnt = 2
+    ws_comb_row_cnt = 2
     for i in range(1,len(min_data_set)-1):
         min_data = min_data_set[i]
         min_data_prev = min_data_set[i-1]
@@ -158,40 +150,52 @@ if __name__ == '__main__':
 
         volume_ratio = volume/avr_volume
         volume_day_ratio = volume/day_volume
+        change_rate = high_price/low_price
         # if volume_ratio > 2:
-        if benefit_ratio_est > th_benefit_ratio:
-            write_ws_rate.cell(row=ws_rate_row_cnt, column=1).value = min_date_str
-            write_ws_rate.cell(row=ws_rate_row_cnt, column=2).value = volume
-            write_ws_rate.cell(row=ws_rate_row_cnt, column=3).value = avr_volume
-            write_ws_rate.cell(row=ws_rate_row_cnt, column=4).value = open_price
-            write_ws_rate.cell(row=ws_rate_row_cnt, column=5).value = low_price
-            write_ws_rate.cell(row=ws_rate_row_cnt, column=6).value = high_price
-            write_ws_rate.cell(row=ws_rate_row_cnt, column=7).value = price
-            write_ws_rate.cell(row=ws_rate_row_cnt, column=8).value = avr_price
-            write_ws_rate.cell(row=ws_rate_row_cnt, column=9).value = benefit_ratio
-            write_ws_rate.cell(row=ws_rate_row_cnt, column=10).value = benefit_ratio_est
-            write_ws_rate.cell(row=ws_rate_row_cnt, column=11).value = volume_ratio
-            write_ws_rate.cell(row=ws_rate_row_cnt, column=12).value = day_volume
-            write_ws_rate.cell(row=ws_rate_row_cnt, column=13).value = day_price
 
-            ws_rate_row_cnt += 1
+        # if (volume_day_ratio > 1) and (benefit_ratio_est > th_benefit_ratio):
+        #     write_ws_comb.cell(row=ws_comb_row_cnt, column=1).value = min_date_str
+        #     write_ws_comb.cell(row=ws_comb_row_cnt, column=2).value = 'gain'
+        #     write_ws_comb.cell(row=ws_comb_row_cnt, column=3).value = volume
+        #     write_ws_comb.cell(row=ws_comb_row_cnt, column=4).value = avr_volume
+        #     write_ws_comb.cell(row=ws_comb_row_cnt, column=5).value = open_price
+        #     write_ws_comb.cell(row=ws_comb_row_cnt, column=6).value = low_price
+        #     write_ws_comb.cell(row=ws_comb_row_cnt, column=7).value = high_price
+        #     write_ws_comb.cell(row=ws_comb_row_cnt, column=8).value = price
+        #     write_ws_comb.cell(row=ws_comb_row_cnt, column=9).value = avr_price
+        #     write_ws_comb.cell(row=ws_comb_row_cnt, column=10).value = change_rate
+        #     write_ws_comb.cell(row=ws_comb_row_cnt, column=11).value = benefit_ratio
+        #     write_ws_comb.cell(row=ws_comb_row_cnt, column=12).value = benefit_ratio_est
+        #     write_ws_comb.cell(row=ws_comb_row_cnt, column=13).value = volume_ratio
+        #     write_ws_comb.cell(row=ws_comb_row_cnt, column=14).value = day_volume
+        #     write_ws_comb.cell(row=ws_comb_row_cnt, column=15).value = volume_day_ratio
+        #     write_ws_comb.cell(row=ws_comb_row_cnt, column=16).value = day_price
 
-        if volume_day_ratio > 1:
-            write_ws_dayvolume.cell(row=ws_dayv_row_cnt, column=1).value = min_date_str
-            write_ws_dayvolume.cell(row=ws_dayv_row_cnt, column=2).value = volume
-            write_ws_dayvolume.cell(row=ws_dayv_row_cnt, column=3).value = avr_volume
-            write_ws_dayvolume.cell(row=ws_dayv_row_cnt, column=4).value = open_price
-            write_ws_dayvolume.cell(row=ws_dayv_row_cnt, column=5).value = low_price
-            write_ws_dayvolume.cell(row=ws_dayv_row_cnt, column=6).value = high_price
-            write_ws_dayvolume.cell(row=ws_dayv_row_cnt, column=7).value = price
-            write_ws_dayvolume.cell(row=ws_dayv_row_cnt, column=8).value = avr_price
-            write_ws_dayvolume.cell(row=ws_dayv_row_cnt, column=9).value = benefit_ratio
-            write_ws_dayvolume.cell(row=ws_dayv_row_cnt, column=10).value = benefit_ratio_est
-            write_ws_dayvolume.cell(row=ws_dayv_row_cnt, column=11).value = volume_ratio
-            write_ws_dayvolume.cell(row=ws_dayv_row_cnt, column=12).value = day_volume
-            write_ws_dayvolume.cell(row=ws_dayv_row_cnt, column=13).value = day_price
+        #     ws_comb_row_cnt += 1
 
-            ws_dayv_row_cnt += 1
+        if (volume_day_ratio > 1) and \
+           (volume_ratio > 1.5) and (volume_ratio < 3.5) and(change_rate > 1.2) and (benefit_ratio > 1):
+            write_ws_comb.cell(row=ws_comb_row_cnt, column=1).value = min_date_str
+            if (benefit_ratio_est > th_benefit_ratio):
+                write_ws_comb.cell(row=ws_comb_row_cnt, column=2).value = 'gain'
+            else:
+                write_ws_comb.cell(row=ws_comb_row_cnt, column=2).value = 'loss'
+            write_ws_comb.cell(row=ws_comb_row_cnt, column=3).value = volume
+            write_ws_comb.cell(row=ws_comb_row_cnt, column=4).value = avr_volume
+            write_ws_comb.cell(row=ws_comb_row_cnt, column=5).value = open_price
+            write_ws_comb.cell(row=ws_comb_row_cnt, column=6).value = low_price
+            write_ws_comb.cell(row=ws_comb_row_cnt, column=7).value = high_price
+            write_ws_comb.cell(row=ws_comb_row_cnt, column=8).value = price
+            write_ws_comb.cell(row=ws_comb_row_cnt, column=9).value = avr_price
+            write_ws_comb.cell(row=ws_comb_row_cnt, column=10).value = change_rate
+            write_ws_comb.cell(row=ws_comb_row_cnt, column=11).value = benefit_ratio
+            write_ws_comb.cell(row=ws_comb_row_cnt, column=12).value = benefit_ratio_est
+            write_ws_comb.cell(row=ws_comb_row_cnt, column=13).value = volume_ratio
+            write_ws_comb.cell(row=ws_comb_row_cnt, column=14).value = day_volume
+            write_ws_comb.cell(row=ws_comb_row_cnt, column=15).value = volume_day_ratio
+            write_ws_comb.cell(row=ws_comb_row_cnt, column=16).value = day_price
+
+            ws_comb_row_cnt += 1
 
         # if print_next == 1:
         #     # print(f'Next avr_v:{avr_volume} day_v:{day_volume} p:{price} avr_p:{avr_price} high_p:{high_price} day_p:{day_price}')
@@ -222,17 +226,17 @@ if __name__ == '__main__':
         #     print(f'high price:{high_price} / {prv_high_p}')
         #     print(f'low price:{low_price} / {prv_low_p}')
 
-        price_set.append(min_data['trade_price'])
-        volume_ratio_set.append(volume_ratio)
+    #     price_set.append(min_data['trade_price'])
+    #     volume_ratio_set.append(volume_ratio)
 
-    avr_volume_ratio = np.mean(volume_ratio_set)
-    std_volume_ratio = np.std(volume_ratio_set)
-    var_volume_ratio = np.var(volume_ratio_set)
+    # avr_volume_ratio = np.mean(volume_ratio_set)
+    # std_volume_ratio = np.std(volume_ratio_set)
+    # var_volume_ratio = np.var(volume_ratio_set)
 
-    print(avr_volume_ratio, std_volume_ratio, var_volume_ratio)
+    # print(avr_volume_ratio, std_volume_ratio, var_volume_ratio)
 
     write_wb.remove(write_wb['Sheet'])
-    excel_name = test_coin + '_avg' + str(avg_day) + '.xlsx'
+    excel_name = 'cond_result' + str(avg_day) + '.xlsx'
     write_wb.save(excel_name)
     write_wb.close()
 
