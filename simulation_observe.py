@@ -56,14 +56,17 @@ if __name__ == '__main__':
     th_benefit_ratio = 1.10
     th_loss_benefit_ratio = 0.95
 
-    th_rate_low = 1.05
-    th_rate_high = 1.1
-    th_c_rate_low = 1.05
-    th_c_rate_high = 1.1
-    th_v_rate_low = 5
-    th_v_rate_high = 150
+    # th_rate_low = 1.05
+    # th_rate_high = 1.1
+    # th_c_rate_low = 1.05
+    # th_c_rate_high = 1.1
+    # th_v_rate_high = 150
     th_nc_rate_high = 1.2
+
+    th_v_rate_low = 10
     th_day_v_rate_high = 1.0
+
+    th_price = 110
     
 
     # for i in range(len(simul_info['coinlist'])):
@@ -171,7 +174,7 @@ if __name__ == '__main__':
                 norm_change_rate = (high_price-low_price)/(price-low_price)
 
             # if (volume_day_ratio > 1) and (benefit_ratio_est > th_benefit_ratio):
-            # if benefit_ratio_est > th_benefit_ratio:
+            # if benefit_ratio_est > th_benefit_ratio and th_price <= price:
             #     write_ws_comb.cell(row=ws_comb_row_cnt, column=1).value = min_date_str
             #     write_ws_comb.cell(row=ws_comb_row_cnt, column=2).value = test_coin
             #     if (benefit_ratio_est > th_benefit_ratio):
@@ -195,11 +198,10 @@ if __name__ == '__main__':
 
             #     ws_comb_row_cnt += 1
 
-            if (th_nc_rate_high >= norm_change_rate) and  \
-                (th_v_rate_low <= volume_ratio) and (th_v_rate_high >= volume_ratio) and \
-                (th_day_v_rate_high >= volume_day_ratio) and \
-                (th_rate_low <= benefit_ratio) and (th_rate_high >= benefit_ratio) and \
-                (th_c_rate_low <= change_rate) and (th_c_rate_high >= change_rate):
+
+            if th_price <= price and \
+                th_v_rate_low <= volume_ratio and th_day_v_rate_high >= volume_day_ratio and \
+                th_nc_rate_high >= norm_change_rate:
                 write_ws_comb.cell(row=ws_comb_row_cnt, column=1).value = min_date_str
                 write_ws_comb.cell(row=ws_comb_row_cnt, column=2).value = test_coin
                 if (benefit_ratio_est >= gain_val):
@@ -224,11 +226,17 @@ if __name__ == '__main__':
                 ws_comb_row_cnt += 1
 
 
+
     print('write result')
+
+
     write_wb.remove(write_wb['Sheet'])
-    excel_name = 'cond_result' + '.xlsx'
-    write_wb.save(excel_name)
-    write_wb.close()
+    excel_name = 'collect' + '.xlsx'
+    try:
+        write_wb.save(excel_name)
+        write_wb.close()
+    except:
+        print('error write excel')
 
     # plt.plot(volume_ratio_set)
     # plt.show()
