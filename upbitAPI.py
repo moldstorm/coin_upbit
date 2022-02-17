@@ -5,6 +5,8 @@ import uuid
 import hashlib
 from urllib.parse import urlencode
 
+import pandas as pd
+
 import requests
 
 import json
@@ -18,6 +20,10 @@ _UPBIT_LIMIT_ORDER_SECONDS = 5
 _UPBIT_LIMIT_ORDER_MINUTES = 100
 _UPBIT_LIMIT_API_SECONDS = 10
 _UPBIT_LIMIT_API_MINUTES = 600
+
+_ACC_VOL = "candle_acc_trade_volume"
+_TIME_UTC = "candle_date_time_utc"
+_TIME_KST = "candle_date_time_kst"
 
 class upbitAPI():
     def __init__(self, key):
@@ -42,7 +48,7 @@ class upbitAPI():
         }
         ret = self.request("/v1/market/all", query)
         self.update_remind_api_num(ret.headers)
-        return ret.json()
+        return pd.DataFrame(ret.json())
 
     def req_market_coininfo(self, coin_code):
         query = {
@@ -50,7 +56,7 @@ class upbitAPI():
         }
         ret = self.request("/v1/orders/chance", query)
         self.update_remind_api_num(ret.headers)
-        return ret.json()
+        return pd.DataFrame(ret.json())
 
     def req_coininfo(self, coin_code):
         query = {
@@ -58,7 +64,7 @@ class upbitAPI():
         }
         ret = self.request("/v1/ticker", query)
         self.update_remind_api_num(ret.headers)
-        return ret.json()
+        return pd.DataFrame(ret.json())
 
     def req_candle_minutes(self, coin_code, count = 1, start_time = None, time_unit = _UPBIT_DEFAULT_TIMEUNIT_MINUTE):
 
@@ -80,7 +86,7 @@ class upbitAPI():
 
         ret = self.request("/v1/candles/minutes/" + str(time_unit), query)
         self.update_remind_api_num(ret.headers)
-        return ret.json()      
+        return pd.DataFrame(ret.json())
 
     def req_candle_days(self, coin_code, count = 1, start_time = None):
 
@@ -98,7 +104,7 @@ class upbitAPI():
 
         ret = self.request("/v1/candles/days", query)
         self.update_remind_api_num(ret.headers)
-        return ret.json()    
+        return pd.DataFrame(ret.json())
 
     def req_candle_weeks(self, coin_code, count = 1, start_time = None):
 
@@ -116,7 +122,7 @@ class upbitAPI():
 
         ret = self.request("/v1/candles/weeks", query)
         self.update_remind_api_num(ret.headers)
-        return ret.json()    
+        return pd.DataFrame(ret.json())
 
     def req_candle_months(self, coin_code, count = 1, start_time = None):
 
@@ -134,7 +140,7 @@ class upbitAPI():
 
         ret = self.request("/v1/candles/months", query)
         self.update_remind_api_num(ret.headers)
-        return ret.json()   
+        return pd.DataFrame(ret.json())
 
     def req_orderbook(self, coin_code):
 
@@ -144,7 +150,7 @@ class upbitAPI():
 
         ret = self.request("/v1/orderbook", query)
         self.update_remind_api_num(ret.headers)
-        return ret.json()   
+        return pd.DataFrame(ret.json())
 
     def request(self, api, query = None):
 
@@ -201,7 +207,7 @@ class upbitAPI():
                 'nonce': str(uuid.uuid4()),
             }
 
-        jwt_token = jwt.encode(payload, self.secret_key).decode('utf8')
+        jwt_token = jwt.encode(payload, self.secret_key)
         authorization_token = 'Bearer {}'.format(jwt_token)
         headers = {"Authorization": authorization_token}
 
@@ -209,6 +215,8 @@ class upbitAPI():
 
 
 if __name__ == '__main__':
+    import datetime
+
     with open('key.json', 'r') as f:
         key = f.read()
 
@@ -217,22 +225,22 @@ if __name__ == '__main__':
     account_info = upbit_api.req_account()
     # print(account_info)
 
-    # coin_list = upbit_api.req_coinlist()
-    # print(coin_list)
+    coin_list = upbit_api.req_coinlist()
+    print(coin_list)
 
-    # coin_info = upbit_api.req_coininfo('KRW-ETH')
-    # print(coin_info)
+    coin_info = upbit_api.req_coininfo('KRW-ETH')
+    print(coin_info)
 
-    # cur_time = datetime.datetime.utcnow()
-    # start_time = cur_time - datetime.timedelta(days=3)
-    # start_time_str = start_time.strftime('%Y-%m-%d %H:%M:%S')
+    cur_time = datetime.datetime.utcnow()
+    start_time = cur_time - datetime.timedelta(days=3)
+    start_time_str = start_time.strftime('%Y-%m-%d %H:%M:%S')
 
-    # cur_time_kst = cur_time + datetime.timedelta(hours=8)
-    # start_time_kst = start_time + datetime.timedelta(hours=8)
+    cur_time_kst = cur_time + datetime.timedelta(hours=8)
+    start_time_kst = start_time + datetime.timedelta(hours=8)
 
-    # print(start_time_kst)
-    # candle_min = upbit_api.req_candle_minutes(coin_code='KRW-BTC', count = 5, start_time = start_time_str, time_unit = 5)
-    # print(candle_min)
+    print(start_time_kst)
+    candle_min = upbit_api.req_candle_minutes(coin_code='KRW-BTC', count = 5, start_time = start_time_str, time_unit = 5)
+    print(candle_min)
 
     # candle_week = upbit_api.req_candle_months(coin_code='KRW-BTC', count = 1, start_time = start_time_str)
     # print(candle_week)
