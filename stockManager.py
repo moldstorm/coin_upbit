@@ -8,48 +8,10 @@ _day = 0
 TIMEDIFF_KST_TO_UTC = datetime.timedelta(hours=-9)
 API_DATA_MAX = 200
 MARKET_PRICE = -1
-
-def _sliceTimeset(time0, time1, tick, slice=API_DATA_MAX):
-    if time0 > time1:
-        time = time1
-        time1 = time0
-        time1 = time
-    
-    timeset = [time1]
-    timetmp = time1
-    if tick == _day:
-        timetmp -= datetime.timedelta(days=slice)
-    else:
-        deltatime = slice*tick
-        timetmp -= datetime.timedelta(minutes=deltatime)
-    while timetmp > time0:        
-        timeset.append(timetmp)
-        if tick == _day:
-            timetmp -= datetime.timedelta(days=slice)
-        else:
-            timetmp -= datetime.timedelta(minutes=deltatime)
-        
-    return timeset
-        
-def _correctTimezone(time):
-    if type(time) == str:
-        datetimeset = datetime.datetime.strptime(time, '%Y-%m-%dT%H:%M:%SZ')
-        datetimeset += TIMEDIFF_KST_TO_UTC
-        time = datetimeset.strftime('%Y-%m-%dT%H:%M:%SZ')
-    elif type(time) == datetime.datetime:
-        time += TIMEDIFF_KST_TO_UTC
-    else:
-        print('Not support time type')
-        return None
-        
-    return time
-
 class stockManager():
     def __init__(self, config):
         self.config = config
         self.upbit_api = upbitAPI.upbitAPI(self.config['key'])
-        
-        pass
     
     def getCoinTicker(self, filter=None):
         coin_list = self.upbit_api.req_coinlist()
@@ -124,6 +86,23 @@ class stockManager():
                 
         else:
             data = self._getData(ticker, timeset, tick=tick)
+
+        if tick == _day:
+            data = data.drop(['market', 'candle_date_time_utc', 'timestamp', \
+                            'candle_acc_trade_price', 'prev_closing_price', 'change_price', 'change_rate'], axis=1) 
+        else:
+            data = data.drop(['market', 'candle_date_time_utc', 'timestamp', \
+                                'candle_acc_trade_price', 'unit'], axis=1) 
+
+        data = data.rename(columns={'candle_date_time_kst':'date', 'opening_price':'open', 'high_price':'high', 'low_price':'low', 'trade_price':'close', 'candle_acc_trade_volume':'volume'}) 
+        data["open"]=data["open"].apply(pd.to_numeric,errors="coerce") 
+        data["high"]=data["high"].apply(pd.to_numeric,errors="coerce") 
+        data["low"]=data["low"].apply(pd.to_numeric,errors="coerce") 
+        data["close"]=data["close"].apply(pd.to_numeric,errors="coerce") 
+        data["volume"]=data["volume"].apply(pd.to_numeric,errors="coerce") 
+        
+        data['date'] = pd.to_datetime(data['date'])
+        data = data.set_index('date')
         
         return data
         
@@ -156,6 +135,42 @@ class stockManager():
             pass            
         
         return True
+
+def _sliceTimeset(time0, time1, tick, slice=API_DATA_MAX):
+    if time0 > time1:
+        time = time1
+        time1 = time0
+        time1 = time
+    
+    timeset = [time1]
+    timetmp = time1
+    if tick == _day:
+        timetmp -= datetime.timedelta(days=slice)
+    else:
+        deltatime = slice*tick
+        timetmp -= datetime.timedelta(minutes=deltatime)
+    while timetmp > time0:        
+        timeset.append(timetmp)
+        if tick == _day:
+            timetmp -= datetime.timedelta(days=slice)
+        else:
+            timetmp -= datetime.timedelta(minutes=deltatime)
+        
+    return timeset
+        
+def _correctTimezone(time):
+    if type(time) == str:
+        datetimeset = datetime.datetime.strptime(time, '%Y-%m-%dT%H:%M:%SZ')
+        datetimeset += TIMEDIFF_KST_TO_UTC
+        time = datetimeset.strftime('%Y-%m-%dT%H:%M:%SZ')
+    elif type(time) == datetime.datetime:
+        time += TIMEDIFF_KST_TO_UTC
+    else:
+        print('Not support time type')
+        return None
+        
+    return time
+
     
 if __name__ == '__main__':
     with open('key.json', 'r') as f:
@@ -169,17 +184,17 @@ if __name__ == '__main__':
     coin_list = stock_mg.getCoinTicker(filter='KRW')
     print(coin_list)
     
-    # data = stock_mg.getData(coin_list[0], tick=_day)
-    # print(data)
+    data = stock_mg.getData(coin_list[0], tick=_day)
+    print(data)
     
-    # data = stock_mg.getData(coin_list[0], tick=10)
-    # print(data)
+    data = stock_mg.getData(coin_list[0], tick=10)
+    print(data)
     
-    # data = stock_mg.getData(coin_list[0], '2022-02-24T02:10:00Z', tick=10)
-    # print(data)
+    data = stock_mg.getData(coin_list[0], '2022-02-24T02:10:00Z', tick=10)
+    print(data)
     
-    # data = stock_mg.getData(coin_list[0], ['2020-05-17T19:16:00Z', '2020-05-05T17:06:00Z'], tick=30)
-    # print(data)
+    data = stock_mg.getData(coin_list[0], ['2020-05-17T19:16:00Z', '2020-05-05T17:06:00Z'], tick=30)
+    print(data)
     
-    # data = stock_mg.getData(coin_list[0], ['2021-05-17T19:16:00Z', '2020-05-05T17:06:00Z'], tick=_day)
-    # print(data)
+    data = stock_mg.getData(coin_list[0], ['2021-05-17T19:16:00Z', '2020-05-05T17:06:00Z'], tick=_day)
+    print(data)
