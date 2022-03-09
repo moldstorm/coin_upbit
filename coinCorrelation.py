@@ -21,7 +21,7 @@ if __name__ == '__main__':
     
     # valid_tickers = []
     # for ticker in tickers:
-    #     data = stock_mg.getData(ticker, startDay, tick=stockManager._day)
+    #     data = stock_mg.getData(ticker, startDay, tick=stockManager._DAY)
     #     # print(dataSet)
     #     # print(f'Ticker:{ticker} valid:{len(dataSet)}')
     #     if len(data) > 0:
@@ -32,7 +32,7 @@ if __name__ == '__main__':
     
     dataSet = pd.DataFrame()
     for ticker in valid_tickers:
-        data = stock_mg.getData(ticker, [startDay, endDay], tick=stockManager._day)
+        data = stock_mg.getData(ticker, [startDay, endDay], tick=stockManager._DAY)
         column_name = f'{ticker}_change'
         data[column_name] = (data['close'] - data['close'].shift(1) / data['close']) * 100
         dataSet = pd.concat([dataSet, data[column_name].to_frame()], axis=1)

@@ -1,6 +1,7 @@
 import json
 import pandas as pd
 import datetime
+import numpy as np
 
 import pickle
 
@@ -8,7 +9,6 @@ EVENT_WAIT = 0
 EVENT_BUY = 1
 EVENT_SELL = 2
 EVENT_HOLD = 3
-
 class strategyAlgo():
     def __init__(self):
         pass
@@ -19,7 +19,7 @@ class strategyAlgo():
         df['EMAslow'] = data['close'].ewm( span = range1, min_periods = range1).mean()
         df['MACD'] = df['EMAfast'] - df['EMAslow']
         df['MACDsignal'] = df['MACD'].ewm( span = signal_range, min_periods = signal_range).mean()
-        df['MACDhist'] = df['MACD'] - df['MACDsignal']
+        df['MACDosc'] = df['MACD'] - df['MACDsignal']
         return df
     
     def calcMovingAvg(self, data, target, range): # Moving Average
@@ -41,6 +41,7 @@ class strategy():
     
     def run(self, data=None):
         self.insertData(data)
+        return self.data.iloc[-1].copy()
         
     def insertData(self,data):
         if self.data is None:
@@ -71,7 +72,7 @@ class volatilityMACD(strategy):
 
         self.data['MACD'] = macd['MACD']
         self.data['MACDsignal'] = macd['MACDsignal']
-        self.data['MACDhist'] = macd['MACDhist']
+        self.data['MACDosc'] = macd['MACDosc']
         self.data['breakout'] = breakout
 
         if len(self.data) == self.config['max_tick']:
@@ -83,7 +84,9 @@ class volatilityMACD(strategy):
         else:
             state = EVENT_WAIT
 
-        return state
+        result_data = self.data.iloc[-1].copy()
+        result_data['state'] = state
+        return result_data
 
     def checkBuy(self):
         prv_data = self.data.iloc[-2]
@@ -94,19 +97,19 @@ class volatilityMACD(strategy):
         breakout = prv_data['breakout']
         breakout_price = cur_data['open'] + breakout
 
-        if pricerate >= self.config['down_rate'] and cur_data['MACDhist'] < 0 and cur_data['close'] > breakout_price:
+        if pricerate >= self.config['down_rate'] and cur_data['MACDosc'] < 0 and cur_data['close'] > breakout_price:
             self.buy_price = cur_data['close']
             return EVENT_BUY
         else:
             return EVENT_WAIT
 
     def checkSell(self):
-        change_prv_hist = abs(self.data.iloc[-2]['MACDhist'] - self.data.iloc[-3]['MACDhist'])
+        change_prv_osc = abs(self.data.iloc[-2]['MACDosc'] - self.data.iloc[-3]['MACDosc'])
         cur_data = self.data.iloc[-1]
 
         rate = cur_data['close'] / self.buy_price
 
-        if cur_data['MACDhist'] > change_prv_hist or rate <= (1-volatilityMACD_config['down_margin_rate']):
+        if cur_data['MACDosc'] > change_prv_osc or rate <= (1-self.config['down_margin_rate']):
             return EVENT_SELL
         else:
             return EVENT_HOLD
@@ -134,7 +137,9 @@ class volatility(strategy):
         else:
             state = EVENT_WAIT
 
-        return state
+        result_data = self.data.iloc[-1].copy()
+        result_data['state'] = state
+        return result_data
 
     def checkBuy(self):
         prv_data = self.data.iloc[-2]
@@ -178,25 +183,25 @@ class strategyManager():
         self.state = EVENT_WAIT
         
     def run(self, data):
-        rate = 1
         state = EVENT_WAIT
-        self.state = self.strategy.run(data, self.state)
+        ret_data = self.strategy.run(data, self.state)
+        self.state = ret_data['state']
         if self.state == EVENT_BUY:
             self.buydata = self.strategy.data.iloc[-1].to_frame()
             self.buydata = self.buydata.transpose()    
             self.state = EVENT_HOLD
             state = EVENT_BUY
+            ret_data['buy'] = ret_data['close']
         elif self.state == EVENT_SELL:
             self.selldata = self.strategy.data.iloc[-1].to_frame()
             self.selldata = self.selldata.transpose()   
             self.state = EVENT_WAIT
             state = EVENT_SELL
-            rate = float(self.selldata['close']) / float(self.buydata['close'])
-            print(f'!! Event rate : {rate}')
-            eventdata = self.buydata.append(self.selldata)
-            print(eventdata)
-        return rate, state
-        
+            ret_data['sell'] = ret_data['close']
+
+        ret_data['state'] = state
+        return ret_data
+                
 if __name__ == '__main__':
     import stockManager
     with open('key.json', 'r') as f:
@@ -224,7 +229,7 @@ if __name__ == '__main__':
     volatilityMACD_config['max_tick'] = volatilityMACD_config['MACDtick'][1] + volatilityMACD_config['MACDtick'][2] + 1
     volatilityMACD_config['down_rate'] = 0.003
     volatilityMACD_config['down_margin_rate'] = 0.01
-    volatilityMACD_config['column_set'] = ['open', 'high', 'low', 'close', 'volume', 'MACD', 'MACDsignal', 'MACDhist', 'breakout']
+    volatilityMACD_config['column_set'] = ['open', 'high', 'low', 'close', 'volume', 'MACD', 'MACDsignal', 'MACDosc', 'breakout']
         
     volatility_config = dict()
     volatility_config['base_tick'] = 15
@@ -238,11 +243,11 @@ if __name__ == '__main__':
     config['volatility'] = volatility_config
     config['strategy_list'] = ['default', 'volatilityMACD', 'volatility']
     
-    config['strategy'] = 'volatility'
+    config['strategy'] = 'volatilityMACD'
         
     st_mg = strategyManager(config)
 
-    # dataSet = stock_mg.getData('KRW-BTC', ['2020-01-01T09:00:00Z', '2021-01-01T09:00:00Z'], tick=15)
+    # dataSet = stock_mg.getData('KRW-BTC', ['2020-01-01T09:00:00Z', '2020-01-10T09:00:00Z'], tick=15)
 
     # with open("data.pickle","wb") as fw:
     #     pickle.dump(dataSet, fw)
@@ -252,16 +257,14 @@ if __name__ == '__main__':
     
     total_rate = 1
     event_cnt = 0
+    
+    total_data = pd.DataFrame()
     for index, data in dataSet.iterrows():
         data = data.to_frame()
         data = data.transpose()        
-        rate, state = st_mg.run(data)
-        if state == EVENT_SELL:
-            total_rate *= (rate - fee*2)
-            event_cnt += 1
-            print(total_rate)
-
-    print(event_cnt, total_rate)
-    
-    
-
+        ret_data = st_mg.run(data)
+        total_data = pd.concat([total_data, ret_data.to_frame().transpose()])
+        if 'buy' in ret_data.keys():
+            print(f"- Buy  {ret_data['date']} {ret_data['buy']}")
+        if 'sell' in ret_data.keys():
+            print(f"  Sell {ret_data['date']} {ret_data['sell']}")

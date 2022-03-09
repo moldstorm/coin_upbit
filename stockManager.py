@@ -4,7 +4,10 @@ import datetime
 
 import upbitAPI
 
-_day = 0
+_DAY = 0
+_WEEK = 1
+_MONTH = 2
+    
 TIMEDIFF_KST_TO_UTC = datetime.timedelta(hours=-9)
 API_DATA_MAX = 200
 MARKET_PRICE = -1
@@ -28,8 +31,8 @@ class stockManager():
         coin_list = self.upbit_api.req_coinlist()
         return
     
-    def getData(self, ticker, timeset=None, tick=_day):
-        if tick == _day:
+    def getData(self, ticker, timeset=None, tick=_DAY):
+        if tick == _DAY:
             data = pd.DataFrame(columns=['market', 'candle_date_time_utc', 'candle_date_time_kst', \
                                         'opening_price', 'high_price', 'low_price', 'trade_price', 'timestamp', \
                                         'candle_acc_trade_price', 'candle_acc_trade_volume', \
@@ -67,7 +70,7 @@ class stockManager():
                 datetimeset[0] = timetmp
             timediff = datetimeset[1] - datetimeset[0]
             
-            if tick == _day:
+            if tick == _DAY:
                 timelist = _sliceTimeset(datetimeset[0], datetimeset[1], tick)
                 left_count = timediff.days+1
                 
@@ -93,7 +96,7 @@ class stockManager():
             data = self._getData(ticker, timeset, tick=tick)
 
         if len(data) > 0:
-            if tick == _day:
+            if tick == _DAY:
                 data = data.drop(['market', 'candle_date_time_utc', 'timestamp', \
                                 'candle_acc_trade_price', 'prev_closing_price', 'change_price', 'change_rate'], axis=1) 
             else:
@@ -112,7 +115,7 @@ class stockManager():
         
         return data
         
-    def _getData(self, ticker, time, count=1, tick=_day):        
+    def _getData(self, ticker, time, count=1, tick=_DAY):        
         if type(time) == str:
             timestr = time                
         elif type(time) == datetime.datetime:
@@ -121,8 +124,8 @@ class stockManager():
             print('Not support time type')
             return None
         
-        if tick == _day:
-            return self.upbit_api.req_candle_days(ticker, count, timestr)
+        if tick == _DAY:
+            return self.upbit_api.req_candle_DAYs(ticker, count, timestr)
         else:
             return self.upbit_api.req_candle_minutes(ticker, count, timestr, tick)
         
@@ -150,14 +153,14 @@ def _sliceTimeset(time0, time1, tick, slice=API_DATA_MAX):
     
     timeset = [time1]
     timetmp = time1
-    if tick == _day:
+    if tick == _DAY:
         timetmp -= datetime.timedelta(days=slice)
     else:
         deltatime = slice*tick
         timetmp -= datetime.timedelta(minutes=deltatime)
     while timetmp > time0:        
         timeset.append(timetmp)
-        if tick == _day:
+        if tick == _DAY:
             timetmp -= datetime.timedelta(days=slice)
         else:
             timetmp -= datetime.timedelta(minutes=deltatime)
@@ -190,7 +193,7 @@ if __name__ == '__main__':
     coin_list = stock_mg.getCoinTicker(filter='KRW')
     print(coin_list)
     
-    data = stock_mg.getData(coin_list[0], tick=_day)
+    data = stock_mg.getData(coin_list[0], tick=_DAY)
     print(data)
     
     data = stock_mg.getData(coin_list[0], tick=10)
@@ -202,5 +205,5 @@ if __name__ == '__main__':
     data = stock_mg.getData(coin_list[0], ['2020-05-17T19:16:00Z', '2020-05-05T17:06:00Z'], tick=30)
     print(data)
     
-    data = stock_mg.getData(coin_list[0], ['2021-05-17T19:16:00Z', '2020-05-05T17:06:00Z'], tick=_day)
+    data = stock_mg.getData(coin_list[0], ['2021-05-17T19:16:00Z', '2020-05-05T17:06:00Z'], tick=_DAY)
     print(data)
