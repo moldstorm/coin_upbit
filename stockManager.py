@@ -24,6 +24,10 @@ class stockManager():
 
         return coin_list
     
+    def getCoinCode(self):
+        coin_list = self.upbit_api.req_coinlist()
+        return
+    
     def getData(self, ticker, timeset=None, tick=_day):
         if tick == _day:
             data = pd.DataFrame(columns=['market', 'candle_date_time_utc', 'candle_date_time_kst', \
@@ -82,27 +86,29 @@ class stockManager():
                 data = data.append(data0)
             
             data.sort_values(by='candle_date_time_kst', inplace = True, ignore_index = True)
-            data.reset_index(inplace = True)                    
+            data.reset_index(inplace = True)      
+            data = data.drop('index', axis=1)              
                 
         else:
             data = self._getData(ticker, timeset, tick=tick)
 
-        if tick == _day:
-            data = data.drop(['market', 'candle_date_time_utc', 'timestamp', \
-                            'candle_acc_trade_price', 'prev_closing_price', 'change_price', 'change_rate'], axis=1) 
-        else:
-            data = data.drop(['market', 'candle_date_time_utc', 'timestamp', \
-                                'candle_acc_trade_price', 'unit'], axis=1) 
+        if len(data) > 0:
+            if tick == _day:
+                data = data.drop(['market', 'candle_date_time_utc', 'timestamp', \
+                                'candle_acc_trade_price', 'prev_closing_price', 'change_price', 'change_rate'], axis=1) 
+            else:
+                data = data.drop(['market', 'candle_date_time_utc', 'timestamp', \
+                                    'candle_acc_trade_price', 'unit'], axis=1) 
 
-        data = data.rename(columns={'candle_date_time_kst':'date', 'opening_price':'open', 'high_price':'high', 'low_price':'low', 'trade_price':'close', 'candle_acc_trade_volume':'volume'}) 
-        data["open"]=data["open"].apply(pd.to_numeric,errors="coerce") 
-        data["high"]=data["high"].apply(pd.to_numeric,errors="coerce") 
-        data["low"]=data["low"].apply(pd.to_numeric,errors="coerce") 
-        data["close"]=data["close"].apply(pd.to_numeric,errors="coerce") 
-        data["volume"]=data["volume"].apply(pd.to_numeric,errors="coerce") 
-        
-        data['date'] = pd.to_datetime(data['date'])
-        data = data.set_index('date')
+            data = data.rename(columns={'candle_date_time_kst':'date', 'opening_price':'open', 'high_price':'high', 'low_price':'low', 'trade_price':'close', 'candle_acc_trade_volume':'volume'}) 
+            data["open"]=data["open"].apply(pd.to_numeric,errors="coerce") 
+            data["high"]=data["high"].apply(pd.to_numeric,errors="coerce") 
+            data["low"]=data["low"].apply(pd.to_numeric,errors="coerce") 
+            data["close"]=data["close"].apply(pd.to_numeric,errors="coerce") 
+            data["volume"]=data["volume"].apply(pd.to_numeric,errors="coerce") 
+            
+            data['date'] = pd.to_datetime(data['date'])
+            # data = data.set_index('date')
         
         return data
         
