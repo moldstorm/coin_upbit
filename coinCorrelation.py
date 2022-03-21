@@ -1,6 +1,7 @@
 import json
 import pickle
 import pandas as pd
+import numpy as np
 
 import stockManager
 
@@ -34,7 +35,9 @@ if __name__ == '__main__':
     for ticker in valid_tickers:
         data = stock_mg.getData(ticker, [startDay, endDay], tick=stockManager._DAY)
         column_name = f'{ticker}_change'
-        data[column_name] = (data['close'] - data['close'].shift(1) / data['close']) * 100
+        # data[column_name] = (data['close'] - data['close'].shift(1) / data['close']) * 100
+        data[column_name] = np.sign(data['close'] - data['close'].shift(1))        
+        # data[column_name] = (data['close'] - data['close'].shift(1) / data['close']) * 100
         dataSet = pd.concat([dataSet, data[column_name].to_frame()], axis=1)
     
     corr_matrix = dataSet.corr(method='pearson')
@@ -53,3 +56,5 @@ if __name__ == '__main__':
     
     print(corr_matrix)
     
+    
+    # up down에 대한 correlation
