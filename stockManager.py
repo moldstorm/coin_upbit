@@ -125,7 +125,7 @@ class stockManager():
             return None
         
         if tick == _DAY:
-            return self.upbit_api.req_candle_DAYs(ticker, count, timestr)
+            return self.upbit_api.req_candle_days(ticker, count, timestr)
         else:
             return self.upbit_api.req_candle_minutes(ticker, count, timestr, tick)
         
