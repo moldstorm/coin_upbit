@@ -19,6 +19,9 @@ import plotly.subplots as ms
 import stockManager
 import strategyManager
 
+# import plotly.io as pio
+# pio.renderers.default = "vscode"
+
 # CSS color:
 #                 aliceblue, antiquewhite, aqua, aquamarine, azure,
 #                 beige, bisque, black, blanchedalmond, blue,
@@ -107,19 +110,26 @@ class plottool():
         # sell_date = sell_event['date'].iloc[0]
         
         start_idx = buy_event_index - buy_date.minute % buy_event.iloc[0]['merge_tick']
-        data = data.loc[start_idx:len(data)]
+        data = data.loc[start_idx+1:len(data)]
         data.drop(['merge_data'], axis=1, inplace=True)
         data.reset_index(inplace=True)
-        breakout_price = float(data['open'].iloc[0]) + float(buy_event['merge_data'].iloc[0]['breakout'])
-        data.insert(0,'breakout_price',value=[np.nan]*len(data))
+        # breakout_price = float(data['open'].iloc[0]) + float(buy_event['merge_data'].iloc[0]['breakout'])
+        breakout_price = float(buy_event['merge_data'].iloc[0]['close']) + float(buy_event['merge_data'].iloc[0]['breakout'])
+        data.insert(0,'breakout_price',value=[breakout_price]*len(data))
         # data['breakout_price'] = np.nan
-        for idx in range(start_idx):
-            data.loc[idx,'breakout_price'] = breakout_price
+        # for idx in range(buy_event_index):
+        #     data.loc[idx,'breakout_price'] = breakout_price
         # data.loc[]
-        data = pd.concat([buy_event['merge_data'].iloc[0], data])
+        
+        merge_data = buy_event['merge_data'].iloc[0]
+        merge_data['date'] = data.iloc[0]['date'] - datetime.timedelta(minutes=buy_event.iloc[0]['base_tick'])
+        data = pd.concat([merge_data, data])
+        
+        
         
         # candle_data = self.data['merge_data'] 
         candle = go.Candlestick(x=data['date'],open=data['open'],high=data['high'],low=data['low'],close=data['close'], increasing_line_color = 'red',decreasing_line_color = 'blue', showlegend=False) 
+        merge_candle = go.Candlestick(x=merge_data['date'],open=merge_data['open'],high=merge_data['high'],low=merge_data['low'],close=merge_data['close'], increasing_line_color = 'cyan',decreasing_line_color = 'purple', showlegend=False) 
         volume = go.Bar(x=data['date'], y=data['volume'], marker_color='red', legendgroup='group1', name='Volume', showlegend=False) 
                         
         buy_event = go.Scatter(x=data['date'][data['buy'].notnull()], y=data['high'][data['buy'].notnull()]+30000, legendgroup='group1', name='Buy',  \
@@ -132,11 +142,49 @@ class plottool():
         # fig = ms.make_subplots(rows=5, cols=2, specs=[[{'rowspan':2},{}],[None,{}],[None,{}],[None,{}],[{},{}]], shared_xaxes=True, horizontal_spacing=0.03, vertical_spacing=0.01) 
         fig = ms.make_subplots(rows=3, cols=1, specs=[[{'rowspan':2}], [{}], [{}]], shared_xaxes=True, horizontal_spacing=0.03, vertical_spacing=0.01) 
         # fig = ms.make_subplots(rows=4, cols=1, specs=[[{'rowspan':2},{}],[None,{}],[None,{}],[None,{}]], shared_xaxes=True, horizontal_spacing=0.03, vertical_spacing=0.01) 
-        fig.add_trace(candle,row=1,col=1)     
         fig.add_trace(buy_event,row=1,col=1)
         fig.add_trace(sell_event,row=1,col=1)
         fig.add_trace(breakout,row=1,col=1)
         fig.add_trace(volume,row=3,col=1)
+        fig.add_trace(candle,row=1,col=1)     
+        fig.add_trace(merge_candle,row=1,col=1) 
+
+        if title_name == None:
+            title_name = ''
+        fig.update_layout(autosize=True, xaxis1_rangeslider_visible=False, xaxis2_rangeslider_visible=False, margin=dict(l=50,r=50,t=50,b=50), template='seaborn', title=title_name) 
+        fig.update_xaxes(tickformat='%y%m%d-%H%M%S', zeroline=True, zerolinewidth=1, zerolinecolor='black', showgrid=True, gridwidth=2, gridcolor='lightgray', showline=True,linewidth=2, linecolor='black', mirror=True) 
+        fig.update_yaxes(tickformat=',d', zeroline=True, zerolinewidth=1, zerolinecolor='black', showgrid=True, gridwidth=2, gridcolor='lightgray',showline=True,linewidth=2, linecolor='black', mirror=True) 
+        fig.update_traces(xhoverformat='%y%m%d-%H%M%S') 
+        config = dict({'scrollZoom': True}) 
+        fig.show(config=config)
+    
+    def plotVolatilityTest(self, data, title_name=None):      
+        data.reset_index(inplace = True)
+        data = data.drop('index', axis=1)   
+
+        dataSet = pd.DataFrame(columns=['date', 'open', 'high', 'low', 'close', 'volume', 'breakout'])
+        tmp = pd.DataFrame(columns=['date', 'open', 'high', 'low', 'close', 'volume', 'breakout'])
+        for idx in range(len(data)):
+            tmp['date'] = data.iloc[idx]['merge_data']['date']
+            tmp['open'] = data.iloc[idx]['merge_data']['open']
+            tmp['high'] = data.iloc[idx]['merge_data']['high']
+            tmp['low'] = data.iloc[idx]['merge_data']['low']
+            tmp['close'] = data.iloc[idx]['merge_data']['close']
+            tmp['volume'] = data.iloc[idx]['merge_data']['volume']
+            if idx > 0:
+                tmp['breakout'] = data.iloc[idx-1]['merge_data']['breakout'] + data.iloc[idx]['merge_data']['open']
+            dataSet = pd.concat([dataSet, tmp])
+
+        # candle_data = self.data['merge_data'] 
+        candle = go.Candlestick(x=dataSet['date'],open=dataSet['open'],high=dataSet['high'],low=dataSet['low'],close=dataSet['close'], increasing_line_color = 'red',decreasing_line_color = 'blue', showlegend=False) 
+        volume = go.Bar(x=dataSet['date'], y=dataSet['volume'], marker_color='red', legendgroup='group1', name='Volume', showlegend=False) 
+        breakout = go.Scatter(x=dataSet['date'], y=dataSet['breakout'], mode='markers', marker=dict(size=12, color='firebrick', symbol='line-ew', line=dict(color='black',width=1))) 
+        # fig = ms.make_subplots(rows=5, cols=2, specs=[[{'rowspan':2},{}],[None,{}],[None,{}],[None,{}],[{},{}]], shared_xaxes=True, horizontal_spacing=0.03, vertical_spacing=0.01) 
+        fig = ms.make_subplots(rows=3, cols=1, specs=[[{'rowspan':2}], [{}], [{}]], shared_xaxes=True, horizontal_spacing=0.03, vertical_spacing=0.01) 
+        # fig = ms.make_subplots(rows=4, cols=1, specs=[[{'rowspan':2},{}],[None,{}],[None,{}],[None,{}]], shared_xaxes=True, horizontal_spacing=0.03, vertical_spacing=0.01) 
+        fig.add_trace(breakout,row=1,col=1)
+        fig.add_trace(volume,row=3,col=1)
+        fig.add_trace(candle,row=1,col=1)     
 
         if title_name == None:
             title_name = ''
@@ -211,6 +259,9 @@ class dataManager():
         if rangelist is None:
             rangelist = [0, self.event_cnt]
             
+        if self.event_cnt == 0:
+            return 1
+            
         if real == False:
             field = 'rate'
         else:
@@ -268,21 +319,31 @@ if __name__ == '__main__':
     volatilityMACD_config['column_set'] = ['open', 'high', 'low', 'close', 'volume', 'MACD', 'MACDsignal', 'MACDhist', 'breakout']
         
     volatility_config = dict()
-    volatility_config['base_tick'] = 1  # 1 minute
-    volatility_config['merge_tick'] = 5    # 15 minutes
+    volatility_config['base_tick'] = 10  # 1 minute
+    volatility_config['merge_tick'] = 1440    # 15 minutes
     volatility_config['max_tick'] = volatility_config['merge_tick']*1
     volatility_config['k'] = 0.5
     volatility_config['k_margin'] = 0.1
     volatility_config['down_rate'] = 0.002
     volatility_config['column_set'] = ['open', 'high', 'low', 'close', 'volume', 'breakout']        
+    
+    volatilityFixtime_config = dict()
+    volatilityFixtime_config['base_tick'] = 10  # 1 minute
+    volatilityFixtime_config['start_time'] = datetime.time(hour=9, minute=0)
+    volatilityFixtime_config['sell_time'] = datetime.time(hour=8, minute=60-volatilityFixtime_config['base_tick'])
+    volatilityFixtime_config['k'] = 0.1
+    volatilityFixtime_config['k_margin'] = 0.1
+    volatilityFixtime_config['down_rate'] = 0.002
+    volatilityFixtime_config['column_set'] = ['open', 'high', 'low', 'close', 'volume', 'breakout']   
 
 
     config['default'] = default_config
     config['volatilityMACD'] = volatilityMACD_config
     config['volatility'] = volatility_config
-    config['strategy_list'] = ['default', 'volatilityMACD', 'volatility']
+    config['volatilityTimeFix'] = volatilityFixtime_config
+    config['strategy_list'] = ['default', 'volatilityMACD', 'volatility', 'volatilityTimeFix']
     
-    config['strategy'] = 'volatility'
+    config['strategy'] = 'volatilityTimeFix'
     base_tick = volatility_config['base_tick']
     merge_tick = volatility_config['merge_tick']
         
@@ -290,10 +351,10 @@ if __name__ == '__main__':
 
     config = dict()
     config['fee'] = 0.0005
-    config['strategy'] = 'volatility'
+    config['strategy'] = 'volatilityTimeFix'
     data_mg = dataManager(config)
 
-    dateset = ['2021-01-01T09:00:00Z', '2021-01-02T09:00:00Z']
+    dateset = ['2021-01-01T09:00:00Z', '2021-01-07T09:00:00Z']
     # dateset = ['2021-11-01T09:00:00Z', '2022-01-01T09:00:00Z']
     ticker = 'KRW-BTC'
     
@@ -304,13 +365,13 @@ if __name__ == '__main__':
         datefile.append(datestr)
     pickle_file = f'data_{datefile[0]}-{datefile[1]}_{base_tick}min.pickle'
     
-    # dataSet = stock_mg.getData(ticker, dateset, tick=base_tick)
+    dataSet = stock_mg.getData(ticker, dateset, tick=base_tick)
 
-    # with open(pickle_file,"wb") as fw:
-    #     pickle.dump(dataSet, fw)
+    with open(pickle_file,"wb") as fw:
+        pickle.dump(dataSet, fw)
 
-    with open(pickle_file,"rb") as fr:
-        dataSet = pickle.load(fr)
+    # with open(pickle_file,"rb") as fr:
+    #     dataSet = pickle.load(fr)
     
     total_rate = 1
     event_cnt = 0
@@ -333,7 +394,11 @@ if __name__ == '__main__':
     total_real_rate = data_mg.getRate(real=True)
 
     plot_tool = plottool()    
-    plot_margin = merge_tick
+    plot_margin = 0
+    
+    plotdata = total_data['merge_data'][total_data['merge_data'].notnull()]
+    plotdata = plotdata.to_frame()     
+    plot_tool.plotVolatilityTest(plotdata)
     
     max_rate = -1
     max_drawdown = -1
@@ -354,31 +419,47 @@ if __name__ == '__main__':
             avr_downrate += rate
             if max_drawdown < rate:
                 max_drawdown = rate
-        start_idx = event['buy_idx']
-        end_idx = event['sell_idx']
-        start_idx -= plot_margin
-        if start_idx < 0:
-            start_idx = 0
+        # start_idx = event['buy_idx']
+        # end_idx = event['sell_idx']
+        # start_idx -= plot_margin
+        # if start_idx < 0:
+        #     start_idx = 0
             
-        end_idx += plot_margin
-        if end_idx > len(total_data):
-            end_idx = len(total_data)
+        # end_idx += plot_margin
+        # if end_idx > len(total_data):
+        #     end_idx = len(total_data)
             
-        data = total_data.loc[start_idx:end_idx]
-        plot_tool.plotVolatility(data)
+        # data = total_data.loc[start_idx:end_idx]
+        # plot_tool.plotVolatility(data)
+        # print(f"date:{data['date'].iloc[0]}")
+    
+    if up_cnt == 0:
+        avr_uprate = None
+    else:
+        avr_uprate /= up_cnt
         
-    avr_uprate /= up_cnt
-    avr_downrate /= down_cnt
+    if down_cnt == 0:
+        avr_downrate = None
+    else:
+        avr_downrate /= down_cnt
+
     total_cnt = up_cnt + down_cnt
     
     print("- Result")
     print(f"# of Trades\t\t: {data_mg.event_cnt}")    
-    print(f"  %winning\t: {up_cnt/total_cnt*100:.4f}%")
-    print(f"  %losing\t: {down_cnt/total_cnt*100:.4f}%")
-    print(f"Net Profit\t: {(total_rate-1)*100:.4f}%")    
-    print(f"Net Profit fee\t: {(total_real_rate-1)*100:.4f}%")
-    print(f"Avr Profit\t: {avr_uprate*100:.4f}%")
-    print(f"Avr Losing\t: {-avr_downrate*100:.4f}%")
-    print(f"Best Winning\t: {max_rate*100:.4f}%")
-    print(f"Max Drawdown\t: {-max_drawdown*100:.4f}%")
-    
+    if total_cnt > 0:
+        print(f"  %winning\t: {up_cnt/total_cnt*100:.4f}%")
+        print(f"  %losing\t: {down_cnt/total_cnt*100:.4f}%")    
+        print(f"Net Profit\t: {(total_rate-1)*100:.4f}%")    
+        print(f"Net Profit fee\t: {(total_real_rate-1)*100:.4f}%")
+        if avr_uprate is not None:
+            print(f"Avr Profit\t: {avr_uprate*100:.4f}%")
+        else:
+            print(f"Avr Profit\t: {avr_uprate}")
+        if avr_downrate is not None:
+            print(f"Avr Losing\t: {-avr_downrate*100:.4f}%")
+        else:
+            print(f"Avr Losing\t: {avr_downrate}")
+        print(f"Best Winning\t: {max_rate*100:.4f}%")
+        print(f"Max Drawdown\t: {-max_drawdown*100:.4f}%")
+        

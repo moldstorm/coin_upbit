@@ -152,7 +152,8 @@ class volatility(strategy):
         self.buy_price = 0
         self.start_wait = True
         self.sell_time = None
-        self.last_time = None
+        self.accum_time = None
+        self.merge_start_time = None
         self.resetData()
         self.merge_data = pd.DataFrame(columns=self.config['column_set'])
         
@@ -162,18 +163,24 @@ class volatility(strategy):
             
         if self.config['max_tick'] <= self.data_cnt:
             self.data = self.data.drop(self.data.index[0])
+            
+        if self.data_cnt == 0:
+            self.merge_start_time = data['date'].iloc[0]
         
         self.data = pd.concat([self.data, data])
         self.data_cnt = len(self.data)
         
+        self.accum_time = data['date'].iloc[0] - self.merge_start_time
         self.last_time = data['date'].iloc[0]
-        
-        if (self.last_time.minute+1) % self.config['merge_tick'] == 0 and self.data_cnt > 0:
+        accum_minute = int(self.accum_time.total_seconds()/60)
+                
+        if (accum_minute % self.config['merge_tick']) == (self.config['merge_tick']-self.config['base_tick']) and self.data_cnt > 0:
             data_list = [[self.data['open'].iloc[0], self.data['high'].max(), self.data['low'].min(), self.data['close'].iloc[-1], self.data['volume'].sum(), 0]]
             self.merge_data = pd.DataFrame(data_list, columns=self.config['column_set'])
             breakout = self.algo.calcVolatilityBreakOut(self.merge_data, self.config['k'])
             self.merge_data['breakout'] = breakout
             self.merge_data['date'] = self.data['date'].iloc[0]
+            self.merge_start_time = self.data['date'].iloc[-1] + datetime.timedelta(minutes=self.config['base_tick'])
             # self.merge_data['date'] += datetime.timedelta(minutes=1)
             
             # self.data = self.data.drop(self.data.index[-1])
@@ -214,6 +221,7 @@ class volatility(strategy):
             
         result_data['merge_data'] = self.merge_data
         result_data['merge_tick'] = self.config['merge_tick']
+        result_data['base_tick'] = self.config['base_tick']
                 
         return result_data
 
@@ -243,7 +251,110 @@ class volatility(strategy):
         else:
             return EVENT_HOLD
 
-strategy_set = {'default':strategy, 'volatilityMACD':volatilityMACD, 'volatility':volatility}
+
+class volatilityTimeFix(strategy):
+    def __init__(self, config):
+        super().__init__(config)
+        self.config = config
+        self.column_set = config['column_set']
+        self.buy_price = 0
+        self.start_wait = True
+        self.sell_time = None
+        self.accum_time = None
+        self.merge_start_time = None
+        self.resetData()
+        self.merge_data = None
+        self.breakout_price = None
+        # self.merge_data = pd.DataFrame(columns=self.config['column_set'])
+        
+    def insertData(self,data):
+        self.last_time = data['date'].iloc[0]
+        if self.data is None or (self.last_time.hour == self.config['start_time'].hour and self.last_time.minute == self.config['start_time'].minute):
+            self.resetData()
+            
+        if self.data_cnt == 0:
+            self.merge_start_time = data['date'].iloc[0]
+        
+        self.data = pd.concat([self.data, data])
+        self.data_cnt = len(self.data)
+
+        if self.last_time.hour == self.config['sell_time'].hour and self.last_time.minute == self.config['sell_time'].minute:
+            data_list = [[self.data['open'].iloc[0], self.data['high'].max(), self.data['low'].min(), self.data['close'].iloc[-1], self.data['volume'].sum(), 0]]
+            self.merge_data = pd.DataFrame(data_list, columns=self.config['column_set'])
+            breakout = self.algo.calcVolatilityBreakOut(self.merge_data, self.config['k'])
+            self.merge_data['breakout'] = breakout
+            self.merge_data['date'] = self.data['date'].iloc[0]
+            self.merge_start_time = self.data['date'].iloc[-1] + datetime.timedelta(minutes=self.config['base_tick'])
+        #     # self.merge_data['date'] += datetime.timedelta(minutes=1)
+            
+        #     # self.data = self.data.drop(self.data.index[-1])
+        if self.last_time.hour == self.config['start_time'].hour and self.last_time.minute == self.config['start_time'].minute and self.merge_data is not None:
+            self.breakout_price = int(self.data.iloc[-1]['open']) + int(self.merge_data['breakout'])
+            
+        
+    def resetData(self):
+        self.data_cnt = 0
+        self.data = pd.DataFrame(columns=self.config['column_set'])
+
+    def run(self, data, prv_state):
+        if self.start_wait == True:
+            date = data['date'].iloc[0]
+            if date.hour != self.config['start_time'].hour and date.minute != self.config['start_time'].minute:
+                data['state'] = EVENT_WAIT
+                self.start_wait = True
+                return data.squeeze()
+            else:
+                self.start_wait = False
+        
+        self.insertData(data)        
+        if prv_state == EVENT_WAIT:
+            state = self.checkBuy()
+        elif prv_state == EVENT_HOLD:
+            state = self.checkSell()
+            
+        result_data = self.data.iloc[-1].copy()
+        if state == EVENT_BUY:
+            result_data['buy'] = result_data['close']
+        if state == EVENT_SELL:
+            result_data['sell'] = result_data['close']
+        result_data['state'] = state
+        # if len(self.merge_data) > 0:            
+            # result_data['merge_high'] = self.merge_data['high'][0]
+            # result_data['merge_low'] = self.merge_data['low'][0]
+            # result_data['merge_open'] = self.merge_data['open'][0]
+            # result_data['merge_close'] = self.merge_data['close'][0]
+            # result_data['merge_date'] = self.merge_data['date'][0]
+        
+        if self.last_time.hour == self.config['sell_time'].hour and self.last_time.minute == self.config['sell_time'].minute:
+            result_data['merge_data'] = self.merge_data
+        result_data['base_tick'] = self.config['base_tick']
+                
+        return result_data
+
+    def checkBuy(self):
+        if self.merge_data is None or len(self.data) == 0 or self.breakout_price is None:
+            return EVENT_WAIT
+        
+        cur_data = self.data.iloc[-1]
+        merge_data = self.merge_data.iloc[0]
+        breakout_price = merge_data['close'] + merge_data['breakout']
+        
+        change_rate = abs(merge_data['close']/merge_data['open']-1)
+
+        if cur_data['close'] > self.breakout_price and merge_data['open'] > merge_data['close'] and change_rate >= self.config['down_rate']:
+            self.buy_price = cur_data['close']
+            # print('Buy,',cur_data['date'])
+            return EVENT_BUY
+        else:
+            return EVENT_WAIT
+
+    def checkSell(self):
+        if self.last_time.hour == self.config['sell_time'].hour and self.last_time.minute == self.config['sell_time'].minute:
+            return EVENT_SELL
+        else:
+            return EVENT_HOLD
+
+strategy_set = {'default':strategy, 'volatilityMACD':volatilityMACD, 'volatility':volatility, 'volatilityTimeFix':volatilityTimeFix}
 
 class strategyManager():
     def __init__(self, config=None):
